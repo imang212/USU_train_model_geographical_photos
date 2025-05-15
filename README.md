@@ -77,7 +77,7 @@ unique_tags = sorted(list(set(all_tags)))
 print(f"\nPočet unikátních tagů: {len(unique_tags)}")
 print(f"Unikátní tagy: {unique_tags}")
 ```
-![image](https://github.com/user-attachments/assets/415f87be-8d55-4aa8-b03f-d13ed1a18f27)
+![image](https://github.com/user-attachments/assets/b7fbb05d-95e6-4d8a-a7f0-8462262d6b22)
 
 Vypsal jsem si informace o tabulce, abych věděl kolik s ní je záznamů, jak má nastavené sloupce, jestli tam například jsou povoleny nulové hodnoty a jakého typu jsou. Také jsem si vypsal informace o tom, jestli obsahuje nějaké nulové hodnoty a kolik je tagů ve sloupci *tags*, kde jsem zjistil, že se vyskytuje 17 různých tagů pro popis prostředí obrázků. 
 
