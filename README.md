@@ -71,11 +71,112 @@ for tags in train_df['tags'].values:
 unique_tags = sorted(list(set(all_tags)))
 print(f"\nPočet unikátních tagů: {len(unique_tags)}")
 print(f"Unikátní tagy: {unique_tags}")
-
 ```
 Vypsal jsem si informace o tabulce, abych věděl kolik s ní je záznamů, jak má nastavené sloupce, jestli tam například jsou povoleny nulové hodnoty a jakého typu jsou. Také jsem si vypsal informace o tom, jestli obsahuje nějaké nulové hodnoty a kolik je tagů ve sloupci *tags*, kde jsem zjistil, že se vyskytuje 17 různých tagů pro popis prostředí obrázků. 
 
 Unikátní tagy:
 
-agriculture, artisinal_mine, bare_ground, blooming, blow_down, clear, cloudy, conventional_mine, cultivation, habitation, haze, partly_cloudy, primary, road, selective_logging, slash_burn, water 
+agriculture, artisinal_mine, bare_ground, blooming, blow_down, clear, cloudy, conventional_mine, cultivation, habitation, haze, partly_cloudy, primary, road, selective_logging, slash_burn, water
+ 
+### Trénování dat a vytvoření klasifikátorů
 
+#### Vytvoření one-hot encodingu pro tagy
+```python
+# Vytvoření one-hot encodingu pro tagy
+def get_tag_map(tags):
+    labels = np.zeros(len(unique_tags))
+    for tag in tags.split():
+        if tag in unique_tags:
+            labels[unique_tags.index(tag)] = 1
+    return labels
+# Přidání one-hot encodingu do dataframe
+train_df['tag_vector'] = train_df['tags'].apply(get_tag_map)
+```
+#### Vytvoření dataset třídy pto PyTorch a definování transformace
+```python
+# Vytvoření vlastní Dataset třídy pro PyTorch
+class PlanetDataset(Dataset):
+    def __init__(self, dataframe, img_dir, transform=None):
+        self.dataframe = dataframe
+        self.img_dir = img_dir
+        self.transform = transform
+    def __len__(self):
+        return len(self.dataframe)
+    def __getitem__(self, idx):
+        img_name = self.dataframe.iloc[idx]['image_name']
+        img_path = os.path.join(self.img_dir, img_name + '.jpg')
+        # Načtení obrázku
+        image = Image.open(img_path).convert('RGB')
+        # Aplikace transformací, pokud jsou definované
+        if self.transform: image = self.transform(image)
+        # Získání one-hot encodingu pro tagy
+        tag_vector = torch.FloatTensor(self.dataframe.iloc[idx]['tag_vector'])
+        return image, tag_vector
+```
+#### Definování transformace
+```python
+# Definování transformací pro obrázky
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+])
+```
+#### Rozdělení na trénovací data a jejich připracení pro trénování modelu
+```python
+train_data, valid_data = train_test_split(train_df, test_size=0.2, random_state=42)
+print(f"\nPočet trénovacích vzorků: {len(train_data)}")
+print(f"Počet validačních vzorků: {len(valid_data)}")
+# Vytvoření datasetů
+train_dataset = PlanetDataset(train_data, TRAIN_DIR, transform=transform)
+valid_dataset = PlanetDataset(valid_data, TRAIN_DIR, transform=transform)
+# Vytvoření dataloaderů
+batch_size = 32
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+# Ukázka načtení jedné dávky dat
+images, labels = next(iter(train_loader))
+print(f"\nTvar načtených obrázků: {images.shape}")
+print(f"Tvar načtených tagů: {labels.shape}")
+# Vizualizace několika obrázků z datasetu
+def visualize_sample(dataset, num_samples=5):
+    plt.figure(figsize=(15, 3*num_samples))
+    for i in range(num_samples):
+        image, label = dataset[i]
+        image = image.permute(1, 2, 0).numpy()
+        # Denormalizace obrázku pro zobrazení
+        image = std * image + mean
+        image = np.clip(image, 0, 1)
+        tags = [unique_tags[j] for j in range(len(unique_tags)) if label[j] == 1]
+        plt.subplot(num_samples, 1, i+1)
+        plt.imshow(image)
+        plt.title(f"Tagy: {', '.join(tags)}")
+        plt.axis('off')
+    plt.tight_layout()
+    plt.show()
+# Hodnoty pro denormalizaci obrázků
+mean = np.array([0.485, 0.456, 0.406])
+std = np.array([0.229, 0.224, 0.225])
+# Zakomentujte následující řádek, pokud nechcete zobrazit ukázkové obrázky
+# visualize_sample(train_dataset)
+print("\nData jsou připravena pro trénování modelu!")
+```
+#### Použití předtrénovaného modelu
+```python
+import torch.nn as nn
+import torch.optim as optim
+from torchvision import models
+
+# Použití předtrénovaného modelu
+model = models.resnet50(pretrained=True)
+# Úprava poslední vrstvy pro multi-label klasifikaci
+model.fc = nn.Linear(model.fc.in_features, len(unique_tags))
+
+# Definice ztráty a optimizéru
+criterion = nn.BCEWithLogitsLoss()
+optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+# Přesun modelu na GPU, pokud je dostupná
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+model = model.to(device)
+```
