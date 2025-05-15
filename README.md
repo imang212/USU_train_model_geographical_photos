@@ -6,7 +6,7 @@ Budu pracovat z datasetem ze stránek kaggle.com (planets_dataset), který obsah
 
 Pojďme si zobrazit kořenovou strukturu datasetu.:
 
-![image](https://github.com/user-attachments/assets/ac0a5d30-521f-4b90-89a5-c9d2f40cf5da)
+![image](https://github.com/user-attachments/assets/1fab1cc9-de39-4a88-a92f-6ae9f64b1def)
 
 První csv tabulka s názvem *sample_submission.csv* obsahuje 61191 hodnot, obsahuje 2 sloupce:
 image_name - název daného obrázku
@@ -15,5 +15,13 @@ tags - popis vlastností toho co je na obrázcích.
 Druhá csv tabulka s názvem *train_classes.csv* obsahuje 40 479 hodnot obsahuje také 2 sloupce:
 image_name - název daného obrázku
 tags - popis vlastností toho co je na obrázcích např.: clear_primary, clear_cloudy_primary, atd...
+
+Máme adresáře pro obrázky:
+
+*test-jpg*, kde se nachází testovací obrázky, je jich přibližně 40 000. 
+
+*train-jpg*, kde se nachází trénovací obrázky, je jich přibližně 40 000.
+
+Máme ještě adresář *test-jpg-additional*, kde se nachází testovací ještě nachází přibližně 20 500 testovacích obrázků navíc. 
 
 ### Technologie
