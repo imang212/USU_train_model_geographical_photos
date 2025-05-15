@@ -8,24 +8,24 @@ Pojďme si zobrazit kořenovou strukturu datasetu.:
 
 ![image](https://github.com/user-attachments/assets/1fab1cc9-de39-4a88-a92f-6ae9f64b1def)
 
-První csv tabulka s názvem *sample_submission.csv* obsahuje 61191 hodnot, obsahuje 2 sloupce:
+První csv tabulka s názvem **sample_submission.csv** obsahuje 61191 hodnot, obsahuje 2 sloupce:
 image_name - název daného obrázku
 tags - popis vlastností toho co je na obrázcích.
 
-Druhá csv tabulka s názvem *train_classes.csv* obsahuje 40 479 hodnot obsahuje také 2 sloupce:
+Druhá csv tabulka s názvem **train_classes.csv** obsahuje 40 479 hodnot obsahuje také 2 sloupce:
 image_name - název daného obrázku
 tags - popis vlastností toho co je na obrázcích např.: clear_primary, clear_cloudy_primary, atd...
 
 Máme adresáře pro obrázky:
 
-*test-jpg*, kde se nachází testovací obrázky, je jich přibližně 40 000. 
+**test-jpg**, kde se nachází testovací obrázky, je jich přibližně 40 000. 
 
-*train-jpg*, kde se nachází trénovací obrázky, je jich přibližně 40 000.
+**train-jpg**, kde se nachází trénovací obrázky, je jich přibližně 40 000.
 
-Máme ještě adresář *test-jpg-additional*, kde se nachází testovací ještě nachází přibližně 20 500 testovacích obrázků navíc. 
+Máme ještě adresář **test-jpg-additional**, kde se nachází testovací ještě nachází přibližně 20 500 testovacích obrázků navíc. 
 
 ### Technologie
-PyTorch a Resnet50.
+Python 3.11. PyTorch a Resnet50.
 ### Načtení dat pro trénovací model
 
 ```python
@@ -55,7 +55,6 @@ SUBMISSION = os.path.join(DATA_DIR, 'planet/planet/sample_submission.csv')
 # Načtení CSV souborů
 train_df = pd.read_csv(TRAIN_CLASSES)
 submission_df = pd.read_csv(SUBMISSION)
-
 ```
 Naimportoval jsem potřebné datasety pro práci s daty. Určil jsem si cesty k adresářům s trénovací a testovacími obrázky a s popisem obrázků. Načetl jsem si csv soubory.
 
@@ -80,11 +79,9 @@ print(f"Unikátní tagy: {unique_tags}")
 ```
 ![image](https://github.com/user-attachments/assets/b7fbb05d-95e6-4d8a-a7f0-8462262d6b22)
 
-Vypsal jsem si informace o tabulce, abych věděl kolik s ní je záznamů, jak má nastavené sloupce, jestli tam například jsou povoleny nulové hodnoty a jakého typu jsou. Také jsem si vypsal informace o tom, jestli obsahuje nějaké nulové hodnoty a kolik je tagů ve sloupci *tags*, kde jsem zjistil, že se vyskytuje 17 různých tagů pro popis prostředí obrázků. 
+Vypsal jsem si informace o tabulce, abych věděl kolik s ní je záznamů, jak má nastavené sloupce, jestli tam například jsou povoleny nulové hodnoty a jakého typu jsou. Také jsem si vypsal informace o tom, jestli obsahuje nějaké nulové hodnoty a kolik je tagů ve sloupci **tags**, kde jsem zjistil, že se vyskytuje 17 různých tagů pro popis prostředí obrázků. 
 
-Unikátní tagy:
-
-agriculture, artisinal_mine, bare_ground, blooming, blow_down, clear, cloudy, conventional_mine, cultivation, habitation, haze, partly_cloudy, primary, road, selective_logging, slash_burn, water
+**Unikátní tagy:** agriculture, artisinal_mine, bare_ground, blooming, blow_down, clear, cloudy, conventional_mine, cultivation, habitation, haze, partly_cloudy, primary, road, selective_logging, slash_burn, water
 
 #### Analýza frekvence tagů
 Abych měl přehled o tom kolikrát se tam který tag vyskytuje.
