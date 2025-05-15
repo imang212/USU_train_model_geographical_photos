@@ -25,3 +25,5 @@ Máme adresáře pro obrázky:
 Máme ještě adresář *test-jpg-additional*, kde se nachází testovací ještě nachází přibližně 20 500 testovacích obrázků navíc. 
 
 ### Technologie
+
+### Načtení dat pro trénovací model
