@@ -92,7 +92,8 @@ def get_tag_map(tags):
 # Přidání one-hot encodingu do dataframe
 train_df['tag_vector'] = train_df['tags'].apply(get_tag_map)
 ```
-#### Vytvoření dataset třídy pto PyTorch a definování transformace
+#### Vytvoření dataset třídy pro PyTorch 
+Abych mohl udělat trénovací model pro Resnet50, tak si musím vytvořit dataset třídu pro PyTorch.
 ```python
 # Vytvoření vlastní Dataset třídy pro PyTorch
 class PlanetDataset(Dataset):
