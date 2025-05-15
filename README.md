@@ -104,7 +104,7 @@ for tag, count in sorted_tags[:10]:
 
 ### Trénování dat a vytvoření klasifikátorů
 #### Vytvoření one-hot encodingu pro tagy
-Abych mohl s tagy u obrázků trénovacím modelu pracovat, tak si musím udělat správný formát dat pro FloatTensor v PyTorch, kde je poté pomocí tensoru převedu do formátu, s kterým bude pracovat trénovací model.
+Abych mohl s tagy u obrázků trénovacím modelu pracovat, tak si musím data převét na vektory, abych s nimi mohl pracovat v PyTorch, kde je poté pomocí tensoru převeden na formát vektorů ve floatech, s kterým bude pracovat trénovací model. Vypíšem si hlavičku datasetu a je tam vidět nový vytvořený sloupec, kde u každého záznamu je udělaný vektor pole, který má 17 hodnot ve formátu floatu, které buďto reprezentují 1.0(True) a nebo 0.0(False) hodnotu, podle toho jestli dané tagy obrázek obsahuje.   
 ```python
 # Vytvoření one-hot encodingu pro tagy
 def get_tag_map(tags):
@@ -119,8 +119,10 @@ train_df['tag_vector'] = train_df['tags'].apply(get_tag_map)
 
 print(train_df.head())
 ```
+![image](https://github.com/user-attachments/assets/3c2fc5bc-d3e0-4f06-ae01-ac8fb5161937)
+
 #### Vytvoření dataset třídy pro PyTorch 
-Abych mohl udělat trénovací model pro Resnet50, tak si musím vytvořit dataset třídu pro PyTorch. V této třídě si určím dataframe, s kterým budu pracovat, adresář pro obrázky a typ transformace pro dané obrázky. Je tu funkce, která mi vrací délku dataframu a funkce __getitem__, která načte obrázky, aplikuje na ně transformaci a pomocí PyTorch vytvoří tag_vector, který převede tagy do správného formátu k trénování datasetu a potom vrátíme vytvořený dataset pro zpracování s obrázky a tag vektorem.
+Abych mohl udělat trénovací model pro Resnet50, tak si musím vytvořit dataset třídu pro PyTorch. V této třídě si určím dataframe, s kterým budu pracovat, adresář pro obrázky a typ transformace pro dané obrázky. Je tu funkce, která mi vrací délku dataframu a funkce __getitem__, která načte obrázky, aplikuje na ně transformaci a pomocí FloatTensor v PyTorch převede tag_vector sloupec s vektory, který převede vektory tagů ve floatu do správného formátu k trénování datasetu a potom vrátíme vytvořený dataset pro zpracování s obrázky a tag vektorem.
 ```python
 # Vytvoření vlastní Dataset třídy pro PyTorch
 class PlanetDataset(Dataset):
@@ -170,7 +172,7 @@ val_transform = transforms.Compose([
 ])
 ```
 #### Rozdělení na trénovací data a jejich připracení pro trénování modelu
-Model si rozdělím na trénovací a validační data. Nastavím si rozdělení trénovacích dat a validačních dat 80/20 a random_state pro zamíchání dat. Vytvořím si datasety pro trénovací a validační data podle třídy PlanetDataset definované pro train model pomocí torch a si datasety načtu do DataLoaderu obsahující dávky (iterace) dat pomocí funkce z PyTorch, abych z nich mohl udělat trénovací model, ve kterých si určím batch size, který obvykle bývá 32, jestli je chci zamíchat a počet workerů. Tato operace, pokud těch dat je hodně, může už trvat dlouhou dobu. A potom si můžu vypsat ukázku načtení jedné části dat obrázků a labelů z train DataLoaderu. Můžu si vypsat, jak vypadá taková jedna dávka dat připravená pro vytvoření trénovacího modelu pomocí resnet50. Vizualizuji si obrázky z datasetu. Na konci si ještě můžu nastavit hodnoty deformací obrázků pro průměr a smerodatnou odchylku, poté už jsou data připravena pro trénování.
+Model si rozdělím na trénovací a validační data. Nastavím si rozdělení trénovacích dat a validačních dat 80/20 a random_state pro zamíchání dat. Následně si vypíši kolik tam je trénovacích a validačních vzorků Vytvořím si datasety pro trénovací a validační data podle třídy PlanetDataset definované pro train model pomocí torch. 
 ```python
 train_data, valid_data = train_test_split(train_df, test_size=0.2, random_state=42)
 print(f"\nPočet trénovacích vzorků: {len(train_data)}")
@@ -178,6 +180,13 @@ print(f"Počet validačních vzorků: {len(valid_data)}")
 # Vytvoření datasetů
 train_dataset = PlanetDataset(train_data, TRAIN_DIR, transform=train_transform)
 valid_dataset = PlanetDataset(valid_data, TRAIN_DIR, transform=val_transform)
+```
+![image](https://github.com/user-attachments/assets/68e96cc7-eec2-4446-85d6-f15e2d43b884)
+
+Načtení dat do DataLoaderu a vytvoření vizualizace.
+
+Datasety si načtu do DataLoaderu obsahující dávky (iterace) dat pomocí funkce z PyTorch, abych z nich mohl udělat trénovací model, ve kterých si určím batch size, který obvykle bývá 32, jestli je chci zamíchat a počet workerů. Tato operace, pokud těch dat je hodně, může už trvat dlouhou dobu. A potom si můžu vypsat ukázku načtení jedné části dat obrázků a labelů z train DataLoaderu. Můžu si vypsat, jak vypadá taková jedna dávka dat připravená pro vytvoření trénovacího modelu pomocí resnet50. Vizualizuji si obrázky z datasetu. Na konci si ještě můžu nastavit hodnoty deformací obrázků pro průměr a smerodatnou odchylku, poté už jsou data připravena pro trénování.
+```python
 # Vytvoření dataloaderů
 batch_size = 32
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
