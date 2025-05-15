@@ -419,7 +419,10 @@ submission_df['tag_vector'] = [np.zeros(len(unique_tags)) for _ in range(len(sub
 test_dataset = PlanetDataset(submission_df, TEST_DIR, transform=val_transform)
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
 
+start_time = time.time()
 create_submission(model, test_loader, submission_df)
+end_time = time.time()
+print(f"Čas pro vytvoření submission pro nejlepší model.: ", end_time - start_time)
 ```
 
 Vyhodnocení nejlepšího modelu pomocí confusion matrices.
