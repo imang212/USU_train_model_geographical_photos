@@ -380,12 +380,12 @@ trained_model = train_model(model=model, train_loader=train_loader, val_loader=v
 end_time = time.time()
 print(f"Čas pro vytrénování modelu v {num_epochs} epochách: ", end_time - start_time)
 ```
-### Vyhodnocení modelu
+### Vyhodnocení nejlepšího modelu
 Načteme si ten nejlepší model.
 ```python
 model.load_state_dict(torch.load('best_planet_classifier.pth'))
 ```
-
+#### Submission
 Funkce pro predikci a vytvoření submission souboru pro nejlepší model.
 
 ```python
@@ -427,7 +427,7 @@ create_submission(model, test_loader, submission_df)
 end_time = time.time()
 print(f"Čas pro vytvoření submission pro nejlepší model.: ", end_time - start_time)
 ```
-
+#### Confusion matrices
 Vyhodnocení nejlepšího modelu pomocí confusion matrices.
 
 ```python
