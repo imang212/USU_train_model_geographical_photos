@@ -77,7 +77,20 @@ Vypsal jsem si informace o tabulce, abych věděl kolik s ní je záznamů, jak 
 Unikátní tagy:
 
 agriculture, artisinal_mine, bare_ground, blooming, blow_down, clear, cloudy, conventional_mine, cultivation, habitation, haze, partly_cloudy, primary, road, selective_logging, slash_burn, water
- 
+
+#### Analýza frekvence tagů
+```python
+tag_counts = {}
+for tag in all_tags:
+    if tag in tag_counts: tag_counts[tag] += 1
+    else: tag_counts[tag] = 1
+
+sorted_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)
+print("\nNejčastější tagy:")
+for tag, count in sorted_tags[:10]:
+    print(f"{tag}: {count} výskytů")
+```
+
 ### Trénování dat a vytvoření klasifikátorů
 #### Vytvoření one-hot encodingu pro tagy
 Abych mohl s tagy u obrázků trénovacím modelu pracovat, tak si musím udělat správný formát kompatibilní pro trénovací model.
