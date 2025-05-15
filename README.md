@@ -53,7 +53,7 @@ submission_df = pd.read_csv(SUBMISSION)
 ```
 Naimportoval jsem potřebné datasety pro práci s daty. Určil jsem si cesty k adresářům s trénovací a testovacími obrázky a s popisem obrázků. Načetl jsem si csv soubory.
 
-#### Zjišťovaní informací o tabulce
+#### Zjišťovaní informací o tabulkách
 ```python
 print(f"Počet trénovacích záznamů: {len(train_df)}")
 print(f"Počet testovacích záznamů: {len(submission_df)}")
