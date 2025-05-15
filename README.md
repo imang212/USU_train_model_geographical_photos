@@ -79,6 +79,7 @@ Unikátní tagy:
 agriculture, artisinal_mine, bare_ground, blooming, blow_down, clear, cloudy, conventional_mine, cultivation, habitation, haze, partly_cloudy, primary, road, selective_logging, slash_burn, water
 
 #### Analýza frekvence tagů
+Abych měl přehled o tom kolikrát se tam který tag vyskytuje.
 ```python
 tag_counts = {}
 for tag in all_tags:
