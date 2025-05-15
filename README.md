@@ -243,16 +243,19 @@ Vytvoříme si seznamy pro ztráty tréningových dat a validačních dat, podle
 Model budeme učit v epochách (cyklech) tím, že si vytvoříme hlacní for-cyklus pro daný počet epoch, kolik chceme provést. Před dalším for cyklem vypíšeme na kolikáté epoše náš model je.
 
 **1. Trénování dat**
+
 Násleďně pomocí příkazu model.train() začne trénování v dané fázi modelu. Při tomto trénování si budem do proměnné running_loss zaznamenávat ztrátu. For-cyklem projdeme inputy a labely pro loader dataset trénovacích dat, kde je přidáme do paměti grafické karty nebo procesoru, který je bude učit. U optimizéru si nastavíme zero_grad(), nulový gradient. Inputy v modelu převedeme na outputy a násleďně vytvoříme proměnnou loss, kam uložíme podle kriterion, kam dáme outputy s labely. Uděláme loss.backward() ztrátových dat. Dále optimizer.step(). Poté uložíme do proměnné running_loss ztrátový item vynásobený velikostí inputu.
 
 Potom, když nám tento for-cyklus pro danou ecpochu proběhl můžeme udělat proměnnou epoch_train_loss, do které se uloží procentuální ztráta u každé epochy a tu následně uložíme do train_loses seznamu.
 
 **2.Validace dat**
+
 Teď je potřeba ještě projít validační data v dané fázi, kde začne vyhodnocování modelu pomocí příkazu model.eval(), u kterého zase budeme zaznamenávat running_loss ztrátu a bude mít seznamy pro ukládání predikátů a labelů. Pomocí PyTorch s vypnutím výpočtu gradientů s for-cyklem, který má inputy a labely pro loader dataset validačních dat provedeme validační fázi, která už je o něco jednodušší než u trénovacích dat. Zase inputy a labely přidáme do daného zařízení, uděláme outputy a vytvoříme loss proměnnou pomocí criterion, running_loss proměnnou, kde se zaznamená aktuální ztráta při validaci. u validačních dat vytvoříme binární predikce pomocí sigmoidy, kam budou vstupovat outputy a nastaví se u toho minimální dolní mez, odkud chceme, aby nám to bralo. Binární predikce ještě převedeme do float formátu a následně je uložíme do seznamu všech predikcí, které nám vrátí z CPU paměti. Do seznamu všech labelů také uložíme labely, které nám také vrátí z CPU paměti.
 
 Predikáty a labely z validačních dat převedeme do 1D dimenze a do formátu Numpy array. Do proměnné epoch_val_loss si uložíme úspěšnost validace.
 
 **Vyhodnocení dané fáze**
+
 Teď, když proběhlo trénování a validace, uděláme nějaké vyhodnocení dané fáze trénovacího modelu.
 
 Z daných dat uděláme precision score a recall score. Vypočítáme F1 score z dané fáze a potom celkové. Násleďně tyto data vypíšeme. Vypíšeme i F1 score pro nejlepší a nejhorší tagy.
@@ -260,6 +263,7 @@ Z daných dat uděláme precision score a recall score. Vypočítáme F1 score z
 Aktualizujem learning rate pomocí schenduler. Nejlepší model uložíme do souboru typu pth. (Důležité)
 
 **Visualizace výsledků trénovacího modelu**
+
 Nakonec si uděláme graf vizualizace výsledků trénovacího modelu, který si uložíme do souboru a z celé funkce vrátíme model.
 ```python
 def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler, num_epochs=10):
