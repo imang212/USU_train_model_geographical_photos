@@ -79,8 +79,8 @@ Unikátní tagy:
 agriculture, artisinal_mine, bare_ground, blooming, blow_down, clear, cloudy, conventional_mine, cultivation, habitation, haze, partly_cloudy, primary, road, selective_logging, slash_burn, water
  
 ### Trénování dat a vytvoření klasifikátorů
-
 #### Vytvoření one-hot encodingu pro tagy
+Abych mohl s tagy u obrázků trénovacím modelu pracovat, tak si musím udělat správný formát kompatibilní pro trénovací model.
 ```python
 # Vytvoření one-hot encodingu pro tagy
 def get_tag_map(tags):
@@ -115,6 +115,7 @@ class PlanetDataset(Dataset):
         return image, tag_vector
 ```
 #### Definování transformace
+Nadefinujem si transformaci pro obrázky, kterou bude použita pro trénování modelu.
 ```python
 # Definování transformací pro obrázky
 transform = transforms.Compose([
@@ -124,6 +125,7 @@ transform = transforms.Compose([
 ])
 ```
 #### Rozdělení na trénovací data a jejich připracení pro trénování modelu
+Model si rozdělím na trénovací a validační data. Nastavím si rozdělení trénovacích dat a validačních dat 80/20 a random_state pro zamíchání dat. Vytvořím si datasety pro trénovací a validační data podle třídy PlanetDataset definované pro train model a poté si k datasetům vytvořím DataLoadery, ve kterých si určím batch size, jestli je chci zamíchat a počet workerů. A potom si můžu vypsat ukázku načtení jedné části dat obrázků a labelů z train DataLoaderu. Vizualizuji si obrázky z datasetu. Na konci si ještě můžu nastavit hodnoty deformací obrázků pro průměr a smerodatnou odchylku, poté už jsou data připravena pro trénování.
 ```python
 train_data, valid_data = train_test_split(train_df, test_size=0.2, random_state=42)
 print(f"\nPočet trénovacích vzorků: {len(train_data)}")
@@ -163,6 +165,7 @@ std = np.array([0.229, 0.224, 0.225])
 print("\nData jsou připravena pro trénování modelu!")
 ```
 #### Použití předtrénovaného modelu
+Když jsou data připravená, můžu už začít s předtrénovaným modelem resnet50, kde si nastavím klasifikaci pro poslední vrstvu, nadefinuji ztrátu a optimizér.
 ```python
 import torch.nn as nn
 import torch.optim as optim
