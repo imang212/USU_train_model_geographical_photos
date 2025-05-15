@@ -33,10 +33,11 @@ PyTorch a Resnet50.
 import os
 import pandas as pd
 import numpy as np
+import seaborn as sns
 from PIL import Image
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score
+from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score, multilabel_confusion_matrix
 import torch
 import torch.nn as nn
 import torch.optim as optim
