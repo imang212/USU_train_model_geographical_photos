@@ -185,9 +185,12 @@ Načtení dat do DataLoaderu a vytvoření vizualizace.
 Datasety si načtu do DataLoaderu obsahující dávky (iterace) dat pomocí funkce z PyTorch, abych z nich mohl udělat trénovací model, ve kterých si určím batch size, který obvykle bývá 32, jestli je chci zamíchat a počet workerů. Tato operace, pokud těch dat je hodně, může už trvat dlouhou dobu. A potom si můžu vypsat ukázku načtení jedné části dat obrázků a labelů z train DataLoaderu. Můžu si vypsat, jak vypadá taková jedna dávka dat připravená pro vytvoření trénovacího modelu pomocí resnet50. Vizualizuji si obrázky z datasetu. Na konci si ještě můžu nastavit hodnoty deformací obrázků pro průměr a smerodatnou odchylku, poté už jsou data připravena pro trénování.
 ```python
 # Vytvoření dataloaderů
+start_time = time.time()
 batch_size = 32
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+end_time = time.time()
+print("Čas pro načtení dat do DataLoaderu: ", end_time - start_time)
 # Ukázka načtení jedné dávky dat
 images, labels = next(iter(train_loader))
 print(f"\nTvar načtených obrázků: {images.shape}")
