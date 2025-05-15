@@ -162,14 +162,14 @@ val_transform = transforms.Compose([
 ])
 ```
 #### Rozdělení na trénovací data a jejich připracení pro trénování modelu
-Model si rozdělím na trénovací a validační data. Nastavím si rozdělení trénovacích dat a validačních dat 80/20 a random_state pro zamíchání dat. Vytvořím si datasety pro trénovací a validační data podle třídy PlanetDataset definované pro train model a poté si k datasetům vytvořím DataLoadery, ve kterých si určím batch size, který obvykle bývá 32, jestli je chci zamíchat a počet workerů. A potom si můžu vypsat ukázku načtení jedné části dat obrázků a labelů z train DataLoaderu. Vizualizuji si obrázky z datasetu. Na konci si ještě můžu nastavit hodnoty deformací obrázků pro průměr a smerodatnou odchylku, poté už jsou data připravena pro trénování.
+Model si rozdělím na trénovací a validační data. Nastavím si rozdělení trénovacích dat a validačních dat 80/20 a random_state pro zamíchání dat. Vytvořím si datasety pro trénovací a validační data podle třídy PlanetDataset definované pro train model pomocí torch a si datasety načtu do DataLoaderu obsahující dávky (iterace) dat pomocí funkce z PyTorch, abych z nich mohl udělat trénovací model, ve kterých si určím batch size, který obvykle bývá 32, jestli je chci zamíchat a počet workerů. Tato operace, pokud těch dat je hodně, může už trvat dlouhou dobu. A potom si můžu vypsat ukázku načtení jedné části dat obrázků a labelů z train DataLoaderu. Můžu si vypsat, jak vypadá taková jedna dávka dat připravená pro vytvoření trénovacího modelu pomocí resnet50. Vizualizuji si obrázky z datasetu. Na konci si ještě můžu nastavit hodnoty deformací obrázků pro průměr a smerodatnou odchylku, poté už jsou data připravena pro trénování.
 ```python
 train_data, valid_data = train_test_split(train_df, test_size=0.2, random_state=42)
 print(f"\nPočet trénovacích vzorků: {len(train_data)}")
 print(f"Počet validačních vzorků: {len(valid_data)}")
 # Vytvoření datasetů
-train_dataset = PlanetDataset(train_data, TRAIN_DIR, transform=transform)
-valid_dataset = PlanetDataset(valid_data, TRAIN_DIR, transform=transform)
+train_dataset = PlanetDataset(train_data, TRAIN_DIR, transform=train_transform)
+valid_dataset = PlanetDataset(valid_data, TRAIN_DIR, transform=val_transform)
 # Vytvoření dataloaderů
 batch_size = 32
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
@@ -194,11 +194,7 @@ def visualize_sample(dataset, num_samples=5):
         plt.axis('off')
     plt.tight_layout()
     plt.show()
-# Hodnoty pro denormalizaci obrázků
-mean = np.array([0.485, 0.456, 0.406])
-std = np.array([0.229, 0.224, 0.225])
-# Zakomentujte následující řádek, pokud nechcete zobrazit ukázkové obrázky
-# visualize_sample(train_dataset)
+visualize_sample(train_dataset)
 print("\nData jsou připravena pro trénování modelu!")
 ```
 #### Použití předtrénovaného modelu
