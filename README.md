@@ -57,7 +57,9 @@ Naimportoval jsem potřebné datasety pro práci s daty. Určil jsem si cesty k 
 ```python
 print(f"Počet trénovacích záznamů: {len(train_df)}")
 print(f"Počet testovacích záznamů: {len(submission_df)}")
+
 # Zobrazení informací o tabulce
+print('\nZobrazení informací o trénovací tabulce:')
 print("Hlavička tabulky: ", train_df.head(), '\n')
 print("Informace o tabulce: ", train_df.info(), '\n')
 print("Nulové hodnoty: ", train_df.isnull().sum(), '\n')
@@ -69,6 +71,7 @@ for tags in train_df['tags'].values:
 unique_tags = sorted(list(set(all_tags)))
 print(f"\nPočet unikátních tagů: {len(unique_tags)}")
 print(f"Unikátní tagy: {unique_tags}")
+
 ```
 Vypsal jsem si informace o tabulce, abych věděl kolik s ní je záznamů, jak má nastavené sloupce, jestli tam například jsou povoleny nulové hodnoty a jakého typu jsou. Také jsem si vypsal informace o tom, jestli obsahuje nějaké nulové hodnoty a kolik je tagů ve sloupci *tags*, kde jsem zjistil, že se vyskytuje 17 různých tagů pro popis prostředí obrázků. 
 
