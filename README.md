@@ -109,12 +109,15 @@ Abych mohl s tagy u obrázků trénovacím modelu pracovat, tak si musím uděla
 # Vytvoření one-hot encodingu pro tagy
 def get_tag_map(tags):
     labels = np.zeros(len(unique_tags))
+    if pd.isna(tags): return labels
     for tag in tags.split():
         if tag in unique_tags:
             labels[unique_tags.index(tag)] = 1
     return labels
 # Přidání one-hot encodingu do dataframe
 train_df['tag_vector'] = train_df['tags'].apply(get_tag_map)
+
+print(train_df.head())
 ```
 #### Vytvoření dataset třídy pro PyTorch 
 Abych mohl udělat trénovací model pro Resnet50, tak si musím vytvořit dataset třídu pro PyTorch. V této třídě si určím dataframe, s kterým budu pracovat, adresář pro obrázky a typ transformace pro dané obrázky. Je tu funkce, která mi vrací délku dataframu a funkce __getitem__, která načte obrázky, aplikuje na ně transformaci a pomocí PyTorch vytvoří tag_vector, který převede tagy do správného formátu k trénování datasetu a potom vrátíme vytvořený dataset pro zpracování s obrázky a tag vektorem.
