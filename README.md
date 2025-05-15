@@ -27,3 +27,48 @@ Máme ještě adresář *test-jpg-additional*, kde se nachází testovací ješt
 ### Technologie
 
 ### Načtení dat pro trénovací model
+
+```python
+#import potřebných datasetů
+import os
+import pandas as pd
+import numpy as np
+from PIL import Image
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+import torch
+from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms
+
+# Nastavení cest k datům
+DATA_DIR = './nikitarom/planets-dataset/versions/3/'
+TRAIN_DIR = os.path.join(DATA_DIR, 'planet/planet/train-jpg')
+TEST_DIR = os.path.join(DATA_DIR, 'planet/planet/test-jpg')
+TRAIN_CLASSES = os.path.join(DATA_DIR, 'planet/planet/train_classes.csv')
+SUBMISSION = os.path.join(DATA_DIR, 'planet/planet/sample_submission.csv')
+
+# Načtení CSV souborů
+train_df = pd.read_csv(TRAIN_CLASSES)
+submission_df = pd.read_csv(SUBMISSION)
+```
+Naimportoval jsem potřebné datasety pro práci s daty. Určil jsem si cesty k adresářům s trénovací a testovacími obrázky a s popisem obrázků. Načetl jsem si csv soubory.
+
+#### Zjišťovaní informací o tabulce
+```python
+print(f"Počet trénovacích záznamů: {len(train_df)}")
+print(f"Počet testovacích záznamů: {len(submission_df)}")
+# Zobrazení informací o tabulce
+print("Hlavička tabulky: ", train_df.head(), '\n')
+print("Informace o tabulce: ", train_df.info(), '\n')
+print("Nulové hodnoty: ", train_df.isnull().sum(), '\n')
+
+# Zobrazme si distribuci tagů ve sloupci 'tags'
+all_tags = []
+for tags in train_df['tags'].values:
+    all_tags.extend(tags.split())
+unique_tags = sorted(list(set(all_tags)))
+print(f"\nPočet unikátních tagů: {len(unique_tags)}")
+print(f"Unikátní tagy: {unique_tags}")
+```
+Vypsal jsem si informace o tabulce, abych věděl kolik s ní je záznamů, jak má nastavené sloupce, jestli tam například jsou povoleny nulové hodnoty a jakého typu jsou. Také jsem si vypsal informace o tom, jestli obsahuje nějaké nulové hodnoty a kolik je tagů ve sloupci *tags*, kde jsem zjistil, že se vyskytuje 17 různých tagů pro popis obrázků.
+
