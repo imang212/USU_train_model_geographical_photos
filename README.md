@@ -360,14 +360,30 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
     plt.savefig('training_results.png')
     return model
 ```
+### Trénování modelu
+Nyní provedeme trénování modelu. Uděláme model z vytvořené vlastní třídy klasifikátoru. Určíme si criterion pro ztrátová data, určíme si optimizer a schenduler. Násleně všechny tyto proměnné dáme do funkce train model, která ám ho vytrénuje. Musí tam vstupovat klasifikátor modelu, daný loader trénovacích dat, loader validačních dat, criterion pro ztrátová data, optimizer, scheduler a počet fází (epoch) v kolika to chceme udělat.
 
+```python
+# Inicializace modelu, kritéria, optimizéru a scheduleru
+model = PlanetClassifier(num_classes=len(unique_tags))
+criterion = nn.BCEWithLogitsLoss()  # Vhodné pro multi-label klasifikaci
+optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=0.001)
+scheduler = ReduceLROnPlateau(optimizer, 'min', patience=2, factor=0.5, verbose=True)
+
+print("Trénování modelu...")
+num_epochs = 15
+start_time = time.time()
+trained_model = train_model(model=model, train_loader=train_loader, val_loader=valid_loader, criterion=criterion, optimizer=optimizer, scheduler=scheduler, num_epochs=num_epochs)
+end_time = time.time()
+print(f"Čas pro vytrénování modelu v {num_epochs} epochách: ", end_time - start_time)
+```
 ### Vyhodnocení modelu
 Načteme si ten nejlepší model.
 ```python
 model.load_state_dict(torch.load('best_planet_classifier.pth'))
 ```
 
-Funkce pro predikci a vytvoření submission souboru.
+Funkce pro predikci a vytvoření submission souboru pro nejlepší model.
 
 ```python
 def create_submission(model, test_loader, submission_df):
@@ -404,4 +420,79 @@ test_dataset = PlanetDataset(submission_df, TEST_DIR, transform=val_transform)
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
 
 create_submission(model, test_loader, submission_df)
+```
+
+Vyhodnocení nejlepšího modelu pomocí confusion matrices.
+
+```python
+def evaluate_model_with_confusion_matrix(model, data_loader, unique_tags):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+    model.eval()
+    all_preds = []; all_labels = []
+    with torch.no_grad():
+        for inputs, labels in data_loader:
+            inputs = inputs.to(device)
+            labels = labels.to(device)
+            outputs = model(inputs)
+            preds = (torch.sigmoid(outputs) > 0.5).float()
+            all_preds.append(preds.cpu())
+            all_labels.append(labels.cpu())
+    # Spojení všech dávek
+    all_preds = torch.cat(all_preds, dim=0).numpy()
+    all_labels = torch.cat(all_labels, dim=0).numpy()
+    # 1. Binary Confusion Matrix pro každou třídu
+    binary_cm = multilabel_confusion_matrix(all_labels, all_preds)
+    # Vizualizace pro vybrané třídy (např. prvních 5 tagů)
+    n_classes_to_show = min(5, len(unique_tags))
+    plt.figure(figsize=(15, 4 * n_classes_to_show))
+    for i in range(n_classes_to_show):
+        plt.subplot(n_classes_to_show, 1, i + 1)
+        cm = binary_cm[i]
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Predicted Negative', 'Predicted Positive'], yticklabels=['Actual Negative', 'Actual Positive'])
+        plt.title(f'Confusion Matrix pro třídu: {unique_tags[i]}'); plt.ylabel('Skutečné hodnoty'); plt.xlabel('Predikované hodnoty')
+    plt.tight_layout(); plt.savefig('binary_confusion_matrices.png'); plt.close()
+    # 2. Komplexnější přístup - počty správně a špatně predikovaných tagů
+    tps = np.sum(np.logical_and(all_preds == 1, all_labels == 1), axis=1)
+    fps = np.sum(np.logical_and(all_preds == 1, all_labels == 0), axis=1)
+    fns = np.sum(np.logical_and(all_preds == 0, all_labels == 1), axis=1)
+    tns = np.sum(np.logical_and(all_preds == 0, all_labels == 0), axis=1)
+    # Pro každý vzorek máme nyní čtyři hodnoty - můžeme spočítat průměry
+    avg_tp = np.mean(tps)
+    avg_fp = np.mean(fps)
+    avg_fn = np.mean(fns)
+    avg_tn = np.mean(tns)
+    # Vytvoření "průměrné" confusion matrix
+    avg_cm = np.array([[avg_tn, avg_fp], [avg_fn, avg_tp]])
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(avg_cm, annot=True, fmt='.2f', cmap='Blues', xticklabels=['Predicted Negative', 'Predicted Positive'], yticklabels=['Actual Negative', 'Actual Positive'])
+    plt.title('Průměrná Confusion Matrix (na vzorek)'); plt.ylabel('Skutečné hodnoty'); plt.xlabel('Predikované hodnoty')
+    plt.tight_layout(); plt.savefig('avg_confusion_matrix.png'); plt.close()
+    # 3. Analýza pro každý tag - výpočet accuracy, precision, recall a F1 score
+    tag_metrics = []
+    for i, tag in enumerate(unique_tags):
+        cm = binary_cm[i]
+        tn, fp, fn, tp = cm.ravel()
+        accuracy = (tp + tn) / (tp + tn + fp + fn) if (tp + tn + fp + fn) > 0 else 0
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+        recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+        f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+        tag_metrics.append({ 'tag': tag, 'accuracy': accuracy, 'precision': precision, 'recall': recall, 'f1': f1, 'support': tp + fn  # Počet výskytů tagu v datasetu
+        })
+    # Seřazení podle F1 score
+    tag_metrics.sort(key=lambda x: x['f1'], reverse=True)
+    # 4. Vizualizace metrik pro všechny tagy
+    # Získání metrik pro všechny tagy a jejich vizualizace
+    tags = [m['tag'] for m in tag_metrics]
+    f1_scores = [m['f1'] for m in tag_metrics]
+    precisions = [m['precision'] for m in tag_metrics]
+    recalls = [m['recall'] for m in tag_metrics]
+    supports = [m['support'] for m in tag_metrics]
+    # Vizualizace F1 score pro všechny tagy
+    plt.figure(figsize=(12, len(tags) * 0.3))
+    plt.barh(tags, f1_scores)
+    plt.xlabel('F1 Score'); plt.ylabel('Tag'); plt.title('F1 Score pro všechny tagy')
+    plt.tight_layout(); plt.savefig('tag_f1_scores.png'); plt.close()
+    return binary_cm, avg_cm, tag_metrics
+binary_cm, avg_cm, tag_metrics = evaluate_model_with_confusion_matrix(model, valid_loader, unique_tags)
 ```
