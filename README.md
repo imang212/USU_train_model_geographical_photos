@@ -98,6 +98,8 @@ for tag, count in sorted_tags[:10]:
 ```
 ![image](https://github.com/user-attachments/assets/cce47905-bde1-4714-a80e-32a0beb21b59)
 
+#### Graf distribuce jednotlivých tagů
+![tags_distribution](https://github.com/user-attachments/assets/652ff75c-a222-46e7-a43c-29773f624a26)
 
 ### Trénování dat a vytvoření klasifikátorů
 #### Vytvoření one-hot encodingu pro tagy
@@ -185,16 +187,18 @@ Načtení dat do DataLoaderu a vytvoření vizualizace.
 Datasety si načtu do DataLoaderu obsahující dávky (iterace) dat pomocí funkce z PyTorch, abych z nich mohl udělat trénovací model, ve kterých si určím batch size, který obvykle bývá 32, jestli je chci zamíchat a počet workerů. A potom si můžu vypsat ukázku načtení jedné dávky dat obrázků a labelů z train DataLoaderu. Tato operace, pokud těch dat je hodně, může už trvat dlouhou dobu. Můžu si vypsat, jak vypadá taková jedna dávka dat připravená pro vytvoření trénovacího modelu pomocí resnet50. Vizualizuji si obrázky z datasetu. Na konci si ještě můžu nastavit hodnoty deformací obrázků pro průměr a smerodatnou odchylku, poté už jsou data připravena pro trénování.
 ```python
 # Vytvoření dataloaderů
-
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
-valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+batch_size = 32
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 # Ukázka načtení jedné dávky dat
 start_time = time.time()
 images, labels = next(iter(train_loader))
+end_time = time.time()
 print(f"\nTvar načtených obrázků: {images.shape}")
 print(f"Tvar načtených tagů: {labels.shape}")
-end_time = time.time()
+print("Čas pro načtení dat do DataLoaderu: ", end_time - start_time, " s")
 # Vizualizace několika obrázků z datasetu
+mean = [0.485, 0.456, 0.406]; std = [0.229, 0.224, 0.225]
 def visualize_sample(dataset, num_samples=5):
     plt.figure(figsize=(15, 3*num_samples))
     for i in range(num_samples):
@@ -204,7 +208,7 @@ def visualize_sample(dataset, num_samples=5):
         image = std * image + mean
         image = np.clip(image, 0, 1)
         tags = [unique_tags[j] for j in range(len(unique_tags)) if label[j] == 1]
-        plt.subplot(num_samples, 1, i+1)
+        plt.subplot(1, num_samples, i+1)
         plt.imshow(image)
         plt.title(f"Tagy: {', '.join(tags)}")
         plt.axis('off')
