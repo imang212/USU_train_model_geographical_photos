@@ -388,8 +388,8 @@ Načteme si ten nejlepší model.
 ```python
 model.load_state_dict(torch.load('best_planet_classifier.pth'))
 ```
-#### Submission
-Funkce pro predikci a vytvoření submission souboru pro nejlepší model.
+#### Testování modelu na testovacíhch datech
+Funkce pro predikci a vytvoření submission souboru pro testovací data na nejlepším modelu.
 
 ```python
 def create_submission(model, test_loader, submission_df):
@@ -431,7 +431,7 @@ end_time = time.time()
 print(f"Čas pro vytvoření submission pro nejlepší model.: ", end_time - start_time)
 ```
 #### Confusion matrices
-Vyhodnocení nejlepšího modelu pomocí confusion matrices.
+Vyhodnocení nejlepšího modelu na testovacích datech pomocí confusion matrices.
 
 ```python
 def evaluate_model_with_confusion_matrix(model, data_loader, unique_tags):
@@ -503,5 +503,5 @@ def evaluate_model_with_confusion_matrix(model, data_loader, unique_tags):
     plt.xlabel('F1 Score'); plt.ylabel('Tag'); plt.title('F1 Score pro všechny tagy')
     plt.tight_layout(); plt.savefig('tag_f1_scores.png'); plt.close()
     return binary_cm, avg_cm, tag_metrics
-binary_cm, avg_cm, tag_metrics = evaluate_model_with_confusion_matrix(model, valid_loader, unique_tags)
+binary_cm, avg_cm, tag_metrics = evaluate_model_with_confusion_matrix(model, test_loader, unique_tags)
 ```
