@@ -179,12 +179,63 @@ print(f"Počet validačních vzorků: {len(valid_data)}")
 # Vytvoření datasetů
 train_dataset = PlanetDataset(train_data, TRAIN_DIR, transform=train_transform)
 valid_dataset = PlanetDataset(valid_data, TRAIN_DIR, transform=val_transform)
+
+def visualize_class_correlations(dataset, unique_tags):
+    num_tags = len(unique_tags); correlation_matrix = np.zeros((num_tags, num_tags))
+    # Sběr všech labelů
+    all_labels = []
+    for _, label in dataset:
+        all_labels.append(label.numpy())
+    all_labels = np.array(all_labels)
+    # Výpočet korelací mezi tagy
+    for i in range(num_tags):
+        for j in range(num_tags):
+            correlation_matrix[i, j] = np.corrcoef(all_labels[:, i], all_labels[:, j])[0, 1]
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(correlation_matrix, xticklabels=unique_tags, yticklabels=unique_tags, cmap='coolwarm', vmin=-1, vmax=1, annot=False)
+    plt.title('Korelace mezi tagy'); plt.tight_layout(); plt.show()
+visualize_class_correlations(train_dataset, unique_tags)
 ```
 ![image](https://github.com/user-attachments/assets/68e96cc7-eec2-4446-85d6-f15e2d43b884)
 
-Načtení dat do DataLoaderu a vytvoření vizualizace.
+![image](https://github.com/user-attachments/assets/a40fbbab-222d-436e-8599-4fc9a4b5e362)
+Zde jsem si udělal korelační matici mezi třídami, abych měl přehled v datasetu o některých kritických třídách a jejich výskytu.
+```python
+def set_critical_class_weights(unique_tags, tag_distribution):
+    weights = torch.ones(len(unique_tags))
+    # Identifikace velmi vzácných tříd (méně než 5% dat)
+    total_samples = sum(tag_distribution.values())
+    threshold_percentage = 0.05
+    # Seznam kritických tříd podle vaší analýzy a domény
+    critical_classes = []
+    # Automatická identifikace vzácných tříd
+    for i, tag in enumerate(unique_tags):
+        count = tag_distribution[tag]
+        percentage = count / total_samples
+        # Vzácné třídy dostanou vyšší váhu
+        if percentage < threshold_percentage:
+            weights[i] = 2.0  # Základní zvýšení pro vzácné třídy
+            critical_classes.append((i, tag, percentage))
+    domain_critical = []
+    # Přidání vah pro doménově kritické třídy
+    for tag in domain_critical:
+        if tag in unique_tags:
+            idx = unique_tags.index(tag)
+            weights[idx] = max(weights[idx], 2.5)  # Vyšší váha pro doménově kritické třídy
+    # Výpis nastavených vah
+    print("Nastavené vyšší váhy pro kritické třídy:")
+    for i, tag in enumerate(unique_tags):
+        if weights[i] > 1.0:
+            print(f"{tag}: {weights[i]:.2f}")
+    return weights
+class_weights = set_critical_class_weights(unique_tags, tag_counts)
+```
+![image](https://github.com/user-attachments/assets/090d6104-bc60-4458-be21-1faa7a42cb88)
 
-Datasety si načtu do DataLoaderu obsahující dávky (iterace) dat pomocí funkce z PyTorch, abych z nich mohl udělat trénovací model, ve kterých si určím batch size, který obvykle bývá 32, jestli je chci zamíchat a počet workerů. A potom si můžu vypsat ukázku načtení jedné dávky dat obrázků a labelů z train DataLoaderu. Tato operace, pokud těch dat je hodně, může už trvat dlouhou dobu. Můžu si vypsat, jak vypadá taková jedna dávka dat připravená pro vytvoření trénovacího modelu pomocí resnet50. Vizualizuji si obrázky z datasetu. Na konci si ještě můžu nastavit hodnoty deformací obrázků pro průměr a smerodatnou odchylku, poté už jsou data připravena pro trénování.
+
+#### Načtení dat do DataLoaderu a vytvoření vizualizace.
+Datasety si načtu do DataLoaderu obsahující dávky (iterace) dat pomocí funkce z PyTorch, abych z nich mohl udělat trénovací model, ve kterých si určím batch size, který obvykle bývá 32, jestli je chci zamíchat a počet workerů na kolika vláknech se mi to bude načítat. Vícevláknové načítání může někdy způsobit problém, že se data načítají delší dobu nebo deadlock. A potom si můžu vypsat ukázku načtení jedné dávky dat obrázků a labelů z train DataLoaderu. Tato operace, pokud těch dat je hodně, může už trvat dlouhou dobu. Můžu si vypsat, jak vypadá taková jedna dávka dat připravená pro vytvoření trénovacího modelu pomocí resnet50. Vizualizuji si obrázky z datasetu. Na konci si ještě můžu nastavit hodnoty deformací obrázků pro průměr a smerodatnou odchylku, poté už jsou data připravena pro trénování.
+
 ```python
 # Vytvoření dataloaderů
 batch_size = 32
@@ -217,8 +268,22 @@ def visualize_sample(dataset, num_samples=5):
 visualize_sample(train_dataset)
 print("\nData jsou připravena pro trénování modelu!")
 ```
+![image](https://github.com/user-attachments/assets/dcc2f5a5-74c7-46b1-921d-8a839130aa3b)
+
 #### Použití předtrénovaného modelu
-Vytvoříme si třídu multi-label klisifikátoru pro klasifikaci daných dat, aby se mohla trénovat. Když jsou data připravená, můžu už začít s předtrénovaným modelem resnet50. Zmrazí se prvních 10 vrstev. Nahradí finální plně připojenou vrstvu pro multi-label klasifikátor. Nastavíme si sekvenci, v jaký sekvenci chceme, aby nám trénovací model trénoval data. nadefinujem si nejdřív lineární transformaci pro plně připojenou vrstvu, poté ReLU, jaký chceme Dropout, poté tohleto ještě můžeme opakovat, jenom lineární transformace bude pro počet tříd. ještě máme udělanou funkci pro vrácení přední vrstvy klasifikátoru.
+Vytvoříme si třídu multi-label klisifikátoru pro klasifikaci daných dat, aby se mohla trénovat. Klasifikátor bude využívat předtrénovaný model Resnet50. Když jsou data připravená, můžu už začít s předtrénovaným modelem resnet50. Při inicializaci se zavolá metoda super() pro danou třídu a __init__, která umořňuje volat metody definované v nadřazené třídě z podtřídy, což umožňuje rozšiřovat a přizpůsobovat funkcionalitu zděděnou z nadřazené třídy. Nadefinujeme si proměnnou pro model resnet50 s předtrénovanými tady. 
+
+Zmrazí se prvních 10 vrstev. Nahradí finální plně připojenou vrstvu pro multi-label klasifikátor. Nastavíme si sekvenci, v jaký sekvenci chceme, aby nám trénovací model trénoval data. 
+
+Nadefinujem si nejdřív, aplikujme na vstupní data lineární transformaci podle dané rovnice pro plně připojenou vrstvu, kde si určíme počet dimenzí a velikost každého vstupního a každého výstupního vzorku a volitelně se dá nastavit bias boolean, jestli se vestva naučí aditivní zkreslení, defaultně je true. 
+
+Dále ReLU, který aplikuje usměrněnou lineární jednotkovou funkci podle daného vzorce po jednotlivých prvcích, máme inplace bool, podle kterého určíme jestli chceme provést operaci na místě, jeho defaultní hodnota je false. 
+
+Definujeme si jaký chceme Dropout, který během tréování vynuluje některé prvky vstupního tensoru s pranděpodobností p. Vynulované prvky jsou vybírány nezávisle pro každé dopředné volání a vzorkovány z Beurnouliho rozdělení. Každý kanál vynulován nezávisle při dopředném volání. Je to účinná technika pro regularizaci a prevenci koadaptace neuronů. Modul jednoduše vypočítá jednotkovou funkci. Obsahuje parametry p (float) označující P vynulování prvku (výchozí je 0.5) a inplace bool, jestli se tato operace provede na místě (výchozí je false).
+
+Poté tohleto ještě můžeme opakovat ReLu, Dropout a Lineární transformaci, kde si převedem počet vstupních dimenzí na počet tříd.
+
+Ještě máme ve třídě udělanou funkci pro vrácení přední vrstvy klasifikátoru vstupující hodnoty x. 
 ```python
 import torch.nn as nn
 import torch.optim as optim
@@ -259,41 +324,37 @@ Vytvoříme si seznamy pro ztráty tréningových dat a validačních dat, podle
 Model budeme učit v epochách (cyklech) tím, že si vytvoříme hlacní for-cyklus pro daný počet epoch, kolik chceme provést. Před dalším for cyklem vypíšeme na kolikáté epoše náš model je.
 
 **1. Trénování dat**
-
-Násleďně pomocí příkazu model.train() začne trénování v dané fázi modelu. Při tomto trénování si budem do proměnné running_loss zaznamenávat ztrátu. For-cyklem projdeme inputy a labely pro loader dataset trénovacích dat, kde je přidáme do paměti grafické karty nebo procesoru, který je bude učit. U optimizéru si nastavíme zero_grad(), nulový gradient. Inputy v modelu převedeme na outputy a násleďně vytvoříme proměnnou loss, kam uložíme podle kriterion, kam dáme outputy s labely. Uděláme loss.backward() ztrátových dat. Dále optimizer.step(). Poté uložíme do proměnné running_loss ztrátový item vynásobený velikostí inputu.
+Násleďně pomocí příkazu model.train() začne trénování v dané fázi modelu. Při tomto trénování si budem do proměnné running_loss zaznamenávat ztrátu. For-cyklem projdeme inputy a labely pro loader dataset trénovacích dat, kde je přidáme do device paměti grafické karty nebo procesoru, který je bude učit. U optimizéru si nastavíme zero_grad(), který resetuje gradienty všech optimalizovaných objektů tensoru. Inputy v modelu převedeme na proměnnou outputs a násleďně vytvoříme proměnnou loss, kam uložíme podle kriterion, kam vstupují outputs s labely. Uděláme loss.backward() ztrátových dat, který gradient aktuálního tensoru vzhledem k listům grafu. Dále optimizer.step(), který provede jeden optimalizační krok pro aktualizaci parametru. Poté uložíme do proměnné running_loss ztrátový item vynásobený velikostí inputu.
 
 Potom, když nám tento for-cyklus pro danou ecpochu proběhl můžeme udělat proměnnou epoch_train_loss, do které se uloží procentuální ztráta u každé epochy a tu následně uložíme do train_loses seznamu.
 
 **2.Validace dat**
+Teď je potřeba ještě projít validační data v dané fázi, kde začne vyhodnocování modelu pomocí příkazu model.eval() pro validaci dat, u kterého zase budeme zaznamenávat running_loss ztrátu a bude mít seznamy pro ukládání predikátů a labelů. Pomocí PyTorch s vypnutím výpočtu gradientů s for-cyklem, který má inputy a labely pro loader dataset validačních dat provedeme validační fázi, která už je o něco jednodušší než u trénovacích dat. Zase inputy a labely přidáme do daného zařízení, uděláme outputy a vytvoříme loss proměnnou pomocí criterion, running_loss proměnnou, kde se zaznamená aktuální ztráta při validaci. U validačních dat vytvoříme binární predikce pomocí sigmoidy, kam budou vstupovat outputy a nastaví se u toho minimální dolní mez, odkud chceme, aby nám to bralo predikce. Binární predikce ještě převedeme do float formátu a následně je uložíme do seznamu všech predikcí, které nám vrátí z CPU paměti. Do seznamu všech labelů také uložíme labely, které nám také vrátí z CPU paměti.
 
-Teď je potřeba ještě projít validační data v dané fázi, kde začne vyhodnocování modelu pomocí příkazu model.eval(), u kterého zase budeme zaznamenávat running_loss ztrátu a bude mít seznamy pro ukládání predikátů a labelů. Pomocí PyTorch s vypnutím výpočtu gradientů s for-cyklem, který má inputy a labely pro loader dataset validačních dat provedeme validační fázi, která už je o něco jednodušší než u trénovacích dat. Zase inputy a labely přidáme do daného zařízení, uděláme outputy a vytvoříme loss proměnnou pomocí criterion, running_loss proměnnou, kde se zaznamená aktuální ztráta při validaci. u validačních dat vytvoříme binární predikce pomocí sigmoidy, kam budou vstupovat outputy a nastaví se u toho minimální dolní mez, odkud chceme, aby nám to bralo. Binární predikce ještě převedeme do float formátu a následně je uložíme do seznamu všech predikcí, které nám vrátí z CPU paměti. Do seznamu všech labelů také uložíme labely, které nám také vrátí z CPU paměti.
-
-Predikáty a labely z validačních dat převedeme do 1D dimenze a do formátu Numpy array. Do proměnné epoch_val_loss si uložíme úspěšnost validace.
+Predikáty a labely z validačních dat převedeme pomocí torch do 1D dimenze a do formátu Numpy array. Do proměnné epoch_val_loss si uložíme úspěšnost validace.
 
 **Vyhodnocení dané fáze**
-
 Teď, když proběhlo trénování a validace, uděláme nějaké vyhodnocení dané fáze trénovacího modelu.
 
-Z daných dat uděláme precision score a recall score. Vypočítáme F1 score z dané fáze a potom celkové. Násleďně tyto data vypíšeme. Vypíšeme i F1 score pro nejlepší a nejhorší tagy.
+Z daných dat uděláme precision score a recall score. Vypočítáme F1 score z dané fáze a potom celkové. Násleďně tyto data vypíšeme. Vypíšeme i F1 score pro 5 nejlepších a nejhorších tagů.
 
-Aktualizujem learning rate pomocí schenduler. Nejlepší model uložíme do souboru typu pth. (Důležité)
+Aktualizujem learning rate pomocí schenduler.(Důležité) Nejlepší model uložíme do souboru typu pth. 
 
 **Visualizace výsledků trénovacího modelu**
+Nakonec si uděláme graf vizualizace výsledků trénovacího modelu, který si uložíme do souboru a z celé funkce vrátíme vytrénovaný model.
 
-Nakonec si uděláme graf vizualizace výsledků trénovacího modelu, který si uložíme do souboru a z celé funkce vrátíme model.
 ```python
 def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler, num_epochs=10):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Používám zařízení: {device}")
     model = model.to(device)
     best_val_f1 = 0.0
-    train_losses = []; val_losses = []
+    train_losses = []; val_losses = []; train_accuracies = []; val_accuracies = []
     for epoch in range(num_epochs):
         print(f"\nEpoch {epoch+1}/{num_epochs}")
         print("-" * 40)
-        # Training phase
         model.train()
-        running_loss = 0.0
+        running_loss = 0.0; correct = 0.0; total = 0.0
         for inputs, labels in train_loader:
             inputs = inputs.to(device)
             labels = labels.to(device)
@@ -303,11 +364,16 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
             loss.backward()
             optimizer.step()
             running_loss += loss.item() * inputs.size(0)
+            _, predicted = outputs.max(1)
+            total += labels.size(0)
+            correct += predicted.eq(labels).sum().item()
         epoch_train_loss = running_loss / len(train_loader.dataset)
         train_losses.append(epoch_train_loss)
-        # Validation phase
+        train_accuracy = 100.0 * correct / total
+        train_accuracies.append(train_accuracy)
+
         model.eval()
-        running_loss = 0.0
+        running_loss = 0.0; correct = 0.0; total = 0.0
         all_preds = []; all_labels = []
         with torch.no_grad():
             for inputs, labels in val_loader:
@@ -316,58 +382,74 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
                 outputs = model(inputs)
                 loss = criterion(outputs, labels)
                 running_loss += loss.item() * inputs.size(0)
-                # Convert probabilities to binary predictions using 0.5 threshold
+                _, predicted = outputs.max(1)
+                total += labels.size(0)
+                correct += predicted.eq(labels).sum().item()
                 preds = (torch.sigmoid(outputs) > 0.5).float()
                 all_preds.append(preds.cpu())
                 all_labels.append(labels.cpu())
-        # Spojení všech dávek
+
         all_preds = torch.cat(all_preds, dim=0).numpy()
         all_labels = torch.cat(all_labels, dim=0).numpy()
         epoch_val_loss = running_loss / len(val_loader.dataset)
         val_losses.append(epoch_val_loss)
+        val_accuracy = 100.0 * correct / total
+        val_accuracies.append(val_accuracy)
+        # Výpočet metrik
         precision = precision_score(all_labels, all_preds, average='samples', zero_division=0)
         recall = recall_score(all_labels, all_preds, average='samples', zero_division=0)
-        # F1 skóre pro každou třídu a průměr
         sample_f1 = f1_score(all_labels, all_preds, average='samples', zero_division=0)
         macro_f1 = f1_score(all_labels, all_preds, average='macro', zero_division=0)
-        print(f'Train Loss: {epoch_train_loss:.4f}, Val Loss: {epoch_val_loss:.4f}')
-        print(f'Precision: {precision:.4f}, Recall: {recall:.4f}')
-        print(f'Sample F1: {sample_f1:.4f}, Macro F1: {macro_f1:.4f}')
-        # Výpis F1 skóre pro některé důležité tagy
+        print(f'Train Loss: {epoch_train_loss:.4f}%, Val Loss: {epoch_val_loss:.4f}%, Train Accuracy: {train_accuracy:.2f}%, Val Accuracy: {val_accuracy:.2f}%')
+        print(f'Precision: {precision:.4f}%, Real Precision(Recall): {recall:.4f}%')
+        print(f'Sample F1(Harmonic mean): {sample_f1:.4f}, Macro F1(Score for every class): {macro_f1:.4f}')
         tag_f1_scores = []
         for i, tag in enumerate(unique_tags):
             tag_f1 = f1_score(all_labels[:, i], all_preds[:, i], zero_division=0)
             tag_f1_scores.append((tag, tag_f1))
-        # Seřazení tagů podle F1 skóre
         tag_f1_scores.sort(key=lambda x: x[1], reverse=True)
         print("\nF1 skóre pro nejlepší tagy:")
         for tag, f1 in tag_f1_scores[:5]:
             print(f"{tag}: {f1:.4f}")
         print("\nF1 skóre pro nejhorší tagy:")
-        for tag, f1 in tag_f1_scores[-5:]:
+        for tag, f1 in tag_f1_scores[-10:]:
             print(f"{tag}: {f1:.4f}")
         # Aktualizace learning rate
-        scheduler.step(epoch_val_loss)        
-        # Uložení nejlepšího modelu
+        scheduler.step(epoch_val_loss)
+
         if sample_f1 > best_val_f1:
             best_val_f1 = sample_f1
             torch.save(model.state_dict(), 'best_planet_classifier.pth')
             print("Uložen nejlepší model!")
     # Vizualizace výsledků tréninku
     plt.figure(figsize=(12, 5))
+    #Graf ztráty (loss)
     plt.subplot(1, 2, 1)
     plt.plot(range(1, num_epochs+1), train_losses, 'b-', label='Trénovací ztráta')
     plt.plot(range(1, num_epochs+1), val_losses, 'r-', label='Validační ztráta')
-    plt.xlabel('Epocha')
-    plt.ylabel('Ztráta')
-    plt.title('Trénovací a validační ztráta')
+    plt.xlabel('Epocha'); plt.ylabel('Ztráta (v %)'); plt.title('Trénovací a validační ztráta')
+    plt.grid(True)
     plt.legend()
-    plt.tight_layout()
-    plt.savefig('training_results.png')
+    # Graf přesnosti (accuracy)
+    plt.subplot(2, 1, 2)
+    plt.plot(range(1, num_epochs+1), train_accuracies, 'g-', label='Trénovací přesnost')
+    plt.plot(range(1, num_epochs+1), val_accuracies, 'm-', label='Validační přesnost')
+    plt.xlabel('Epocha'); plt.ylabel('Přesnost (v %)'); plt.title('Trénovací a validační přesnost')
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout(); plt.savefig('training_results.png', dpi=300, bbox_inches='tight'); plt.show()
     return model
 ```
 ### Trénování modelu
-Nyní provedeme trénování modelu. Uděláme model z vytvořené vlastní třídy klasifikátoru. Určíme si criterion pro ztrátová data, určíme si optimizer a schenduler. Násleně všechny tyto proměnné dáme do funkce train model, která ám ho vytrénuje. Musí tam vstupovat klasifikátor modelu, daný loader trénovacích dat, loader validačních dat, criterion pro ztrátová data, optimizer, scheduler a počet fází (epoch) v kolika to chceme udělat.
+Nyní provedeme trénování modelu. Uděláme model z vytvořené vlastní třídy klasifikátoru, kam nám vstupuje počet tříd roven počtu unikátních tagů v trénovacím datasetu, které zároven indkují, že se jedná o multi-label klasifikaci. 
+
+Určíme si criterion pro ztrátová data. BCEWithLogitsLoss(), tato ztráta kombinuje vrstvu sigmoidy a BCELoss do jedné třídy a zároveň je ideální pro multi-label klasifikaci, kde jeden snímek může obsahovat více prvků najednou. Tato verze ztráty je numericky stabilnější než použití prosté sigmoidy, protože kombinací operací do jedné vrstvy využívá trik logaritmického součtu a explorace pro numerickou stabilitu. U této ztráty si můžeme určit reduction (Redukci, která se má použít na výstup: mean, sum nebo none), může sem vstupovat pos_weight (Volitelný tensor, kam vstupují prvky torch.ones([num_classes]) odpovídající odlišným třídám ve scénáři binární klasifikace s více štítky. Každý prvek v pos_weight je navržen tak, aby upravoval funkci ztrát na základě nerovnováhy mezi negativními a pozitivními vzorky pro příslušnou třídu. Tento přístup je užitečný v datasetech s různou úrovní nerovnováhy tříd.), weight (Tensor, volitelný parametr pro ruční váhu pro změnu škalování přiřazené ztrátě každého prvku batche), size_average (Bool, volitelný, zastaralé. V jeho výchozím nastavení se ztráty průměrují nebo sčítají pro každou dávku v závislosti na size_average) a pos_weight (Volitelný tensor, kde se určí váha positivních příkadů, které se májí vysílat s cílem)
+
+Určíme si optimizer, přes který implementujeme optimalizační algoritmus, vytvoříme objekt, který bude uchovávat aktuální stav a aktualizovat parametry na základě vypočítaných parametrů. Nejčastěji se používá Adam, který upravuje learning rate pro každý parametr zvlášť a u kterého se dá nastavit spousta volitelných vlastností, jako je params (iterovatelný objekt parametrů), lr (Float a tensor. Rychlost učení), betas (Koeficienty použité pro výpočet klouzavých průměrů gradientu a jeho druhé mocniny.), eps (Float člen přidaný do jmenovatele pro zlepšení num stability.), weight_decay (Float úbytku hmotnosti), decoupled_weight_decay (Bool jestli má algoritmus akumulovat úbytek hmotnosti v hybnosti nebo rozptylu.), amsgrad (Zda použít variantu AMSGrad algoritmu.), foreach(Bool), maximize (Jestli chceme maximalizovat cíl s ohledem na parametry, místo minimalizace), atd... Vstupuje do něj filtr, který pouze vybírá parametry modelu, které mají povolený gradient. Toto nastavení umožňuje rychlé učení na začátku tréninku a jemnější doladění, když se model přibližuje k optimu, což je zvláště důležité pro detailní klasifikaci geografických prvků.
+
+Schenduler ReduceLROnPlateau(), který nám snižuje learning rate, když se validační ztráta přestane zlepšovat. Pro geografická data, kde může být obtížné najít optimální learning rate, je toto adaptivní přizpůsobení velmi užitečné. Má nastavené parametry min (Sleduje minimální metriky, validační loss), patience (Čeká daný počet epoch bez zlepšení, než se sníží learning rate), factor (Při aktivaci sníží learning rate na polovinu (0.5*současná hodnota).)
+
+Násleně všechny tyto proměnné dáme do funkce train model, která ám ho vytrénuje. Do funkce vstupuje: klasifikátor modelu, daný loader trénovacích dat, loader validačních dat, criterion pro ztrátová data, optimizer, scheduler a nastavený počet fází (epoch) v kolika to chceme provést.
 
 ```python
 # Inicializace modelu, kritéria, optimizéru a scheduleru
@@ -383,29 +465,33 @@ trained_model = train_model(model=model, train_loader=train_loader, val_loader=v
 end_time = time.time()
 print(f"Čas pro vytrénování modelu v {num_epochs} epochách: ", end_time - start_time)
 ```
+![image](https://github.com/user-attachments/assets/9c268d65-1c6d-40f4-b4e7-0cdb3d82a0fa)
+![training_results](https://github.com/user-attachments/assets/8844d370-2fb5-47a1-ba3f-c43ef3208dc2)
+
 ### Vyhodnocení nejlepšího modelu
 Načteme si ten nejlepší model.
 ```python
 model.load_state_dict(torch.load('best_planet_classifier.pth'))
 ```
 #### Testování modelu na testovacíhch datech
-Funkce pro predikci a vytvoření submission souboru pro testovací data na nejlepším modelu.
+Funkce pro predikci a vytvoření submission souboru pro prvních 10 000 testovaxíxh dat na nejlepším modelu. Změřil jsem i přitom čas.
 
 ```python
-def create_submission(model, test_loader, submission_df):
+def create_submission(model, test_loader, submission_df, max_samples):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     model.eval()
-    predictions = []; image_names = []
+    predictions = []; image_names = []; processed_samples = 0
     with torch.no_grad():
         for batch, (inputs, _) in enumerate(test_loader):
+            if processed_samples >=max_samples: break
             inputs = inputs.to(device)
             outputs = model(inputs)
             probs = torch.sigmoid(outputs)
             preds = (probs > 0.5).float().cpu().numpy()
             for i in range(len(preds)):
                 idx = batch * test_loader.batch_size + i
-                if idx < len(submission_df):
+                if idx < len(submission_df) and processed_samples < max_samples:
                     img_name = submission_df.iloc[idx]['image_name']
                     image_names.append(img_name)
                     # Získání tagů pro predikci
@@ -413,32 +499,37 @@ def create_submission(model, test_loader, submission_df):
                     for j, val in enumerate(preds[i]):
                         if val == 1:
                             pred_tags.append(unique_tags[j])
-                    predictions.append(' '.join(pred_tags))  
+                    predictions.append(' '.join(pred_tags))
+                    processed_samples += 1
+    print(f"Zpracováno {processed_samples} vzorků.")
     # Vytvoření submission dataframe
     submit_df = pd.DataFrame({'image_name': image_names, 'tags': predictions })
     # Uložení do CSV
     submit_df.to_csv('submission.csv', index=False)
     print("Submission soubor byl vytvořen!")
 
-submission_df['tag_vector'] = [np.zeros(len(unique_tags)) for _ in range(len(submission_df))]
-
-test_dataset = PlanetDataset(submission_df, TEST_DIR, transform=val_transform)
-test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+#načtení testovacího datasetu
+filtered_submission_df = submission_df.head(10000)
+filtered_submission_df['tag_vector'] = [np.zeros(len(unique_tags)) for _ in range(len(filtered_submission_df))]
+test_dataset = PlanetDataset(filtered_submission_df, TRAIN_DIR, transform=val_transform)
+test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 
 start_time = time.time()
-create_submission(model, test_loader, submission_df)
+create_submission(trained_model, valid_loader, submission_df=submission_df, max_samples=10000)
 end_time = time.time()
-print(f"Čas pro vytvoření submission pro nejlepší model.: ", end_time - start_time)
+print(f"Čas pro vytvoření submission na testovacích datech.: ", (end_time - start_time)/60, " minut, ", (end_time - start_time)/60/60, " hodin")
 ```
+![image](https://github.com/user-attachments/assets/07481774-9eab-45b0-88c4-a6b9dd3512fd)
+
 #### Confusion matrices
-Vyhodnocení nejlepšího modelu na testovacích datech pomocí confusion matrices.
+Vyhodnocení nejlepšího modelu na validačních datech pomocí confusion matrices. Nejdříve jsem vytvořil confusion matrices pro jednotlivé tagy, potom confusion matrix pro všechny tagy a nakonec jsem ještě vpsal tabulku detailních výsledků o jednotlivých tagech. Změřil jsem čas potřebný k vytvoření těchto matic.
 
 ```python
 def evaluate_model_with_confusion_matrix(model, data_loader, unique_tags):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     model.eval()
-    all_preds = []; all_labels = []
+    all_preds = []; all_labels = []; processed_samples = 0
     with torch.no_grad():
         for inputs, labels in data_loader:
             inputs = inputs.to(device)
@@ -450,58 +541,84 @@ def evaluate_model_with_confusion_matrix(model, data_loader, unique_tags):
     # Spojení všech dávek
     all_preds = torch.cat(all_preds, dim=0).numpy()
     all_labels = torch.cat(all_labels, dim=0).numpy()
-    # 1. Binary Confusion Matrix pro každou třídu
+
+    # GRID LAYOUT - Všechny tagy v jednom obrázku
+    n_tags = len(unique_tags)
+    n_cols = 5  # Počet sloupců v gridu
+    n_rows = (n_tags + n_cols - 1) // n_cols  # Výpočet počtu řádků
+    plt.figure(figsize=(16, 3 * n_rows))
     binary_cm = multilabel_confusion_matrix(all_labels, all_preds)
-    # Vizualizace pro vybrané třídy (např. prvních 5 tagů)
-    n_classes_to_show = min(5, len(unique_tags))
-    plt.figure(figsize=(15, 4 * n_classes_to_show))
-    for i in range(n_classes_to_show):
-        plt.subplot(n_classes_to_show, 1, i + 1)
+    for i in range(n_tags):
+        plt.subplot(n_rows, n_cols, i + 1)
         cm = binary_cm[i]
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Predicted Negative', 'Predicted Positive'], yticklabels=['Actual Negative', 'Actual Positive'])
-        plt.title(f'Confusion Matrix pro třídu: {unique_tags[i]}'); plt.ylabel('Skutečné hodnoty'); plt.xlabel('Predikované hodnoty')
-    plt.tight_layout(); plt.savefig('binary_confusion_matrices.png'); plt.close()
-    # 2. Komplexnější přístup - počty správně a špatně predikovaných tagů
-    tps = np.sum(np.logical_and(all_preds == 1, all_labels == 1), axis=1)
-    fps = np.sum(np.logical_and(all_preds == 1, all_labels == 0), axis=1)
-    fns = np.sum(np.logical_and(all_preds == 0, all_labels == 1), axis=1)
-    tns = np.sum(np.logical_and(all_preds == 0, all_labels == 0), axis=1)
-    # Pro každý vzorek máme nyní čtyři hodnoty - můžeme spočítat průměry
-    avg_tp = np.mean(tps)
-    avg_fp = np.mean(fps)
-    avg_fn = np.mean(fns)
-    avg_tn = np.mean(tns)
-    # Vytvoření "průměrné" confusion matrix
-    avg_cm = np.array([[avg_tn, avg_fp], [avg_fn, avg_tp]])
+        sns.heatmap(cm, annot=True, fmt='d', cmap='coolwarm', xticklabels=['Neg', 'Pos'], yticklabels=['Neg', 'Pos'], cbar=False)
+        plt.title(f'{unique_tags[i]}', fontsize=10)
+        plt.xlabel('')
+        plt.ylabel('')
+    plt.subplots_adjust(wspace=0.3, hspace=0.3)
+    plt.tight_layout(); plt.savefig('all_tags_confusion_matrix_grid.png', dpi=300, bbox_inches='tight'); plt.show(); plt.close()
+    # KOMPAKTNÍ CONFUSION MATRIX - Agregované hodnoty
+    # Výpočet agregovaných hodnot
+    total_tp = np.sum([binary_cm[i][1,1] for i in range(n_tags)])
+    total_fp = np.sum([binary_cm[i][0,1] for i in range(n_tags)])
+    total_fn = np.sum([binary_cm[i][1,0] for i in range(n_tags)])
+    total_tn = np.sum([binary_cm[i][0,0] for i in range(n_tags)])
+    # Vytvoření agregované confusion matrix
+    aggregated_cm = np.array([[total_tn, total_fp], [total_fn, total_tp]])
     plt.figure(figsize=(8, 6))
-    sns.heatmap(avg_cm, annot=True, fmt='.2f', cmap='Blues', xticklabels=['Predicted Negative', 'Predicted Positive'], yticklabels=['Actual Negative', 'Actual Positive'])
-    plt.title('Průměrná Confusion Matrix (na vzorek)'); plt.ylabel('Skutečné hodnoty'); plt.xlabel('Predikované hodnoty')
-    plt.tight_layout(); plt.savefig('avg_confusion_matrix.png'); plt.close()
-    # 3. Analýza pro každý tag - výpočet accuracy, precision, recall a F1 score
-    tag_metrics = []
-    for i, tag in enumerate(unique_tags):
+    sns.heatmap(aggregated_cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Predicted Negative', 'Predicted Positive'], yticklabels=['Actual Negative', 'Actual Positive'])
+    plt.title('Agregovaná Confusion Matrix (všechny tagy)', fontsize=14); plt.ylabel('Skutečné hodnoty'); plt.xlabel('Predikované hodnoty')
+    # Přidání procent
+    total = np.sum(aggregated_cm)
+    for i in range(2):
+        for j in range(2):
+            percentage = (aggregated_cm[i,j] / total) * 100
+            plt.text(j+0.5, i+0.7, f'({percentage:.1f}%)', ha='center', va='center', fontsize=10, color='red')
+    plt.tight_layout(); plt.savefig('aggregated_confusion_matrix.png', dpi=300, bbox_inches='tight'); plt.show(); plt.close()
+    # 5. INTERAKTIVNÍ TABULKA S DETAILY
+    print("\n" + "="*80)
+    print("DETAILNÍ PŘEHLED VÝSLEDKŮ PRO VŠECHNY TAGY")
+    print("="*80)
+
+    precisions = []; recalls = []; f1_scores = []; supports = []
+    for i in range(n_tags):
         cm = binary_cm[i]
         tn, fp, fn, tp = cm.ravel()
-        accuracy = (tp + tn) / (tp + tn + fp + fn) if (tp + tn + fp + fn) > 0 else 0
         precision = tp / (tp + fp) if (tp + fp) > 0 else 0
         recall = tp / (tp + fn) if (tp + fn) > 0 else 0
         f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
-        tag_metrics.append({ 'tag': tag, 'accuracy': accuracy, 'precision': precision, 'recall': recall, 'f1': f1, 'support': tp + fn  # Počet výskytů tagu v datasetu
-        })
-    # Seřazení podle F1 score
-    tag_metrics.sort(key=lambda x: x['f1'], reverse=True)
-    # 4. Vizualizace metrik pro všechny tagy
-    # Získání metrik pro všechny tagy a jejich vizualizace
-    tags = [m['tag'] for m in tag_metrics]
-    f1_scores = [m['f1'] for m in tag_metrics]
-    precisions = [m['precision'] for m in tag_metrics]
-    recalls = [m['recall'] for m in tag_metrics]
-    supports = [m['support'] for m in tag_metrics]
-    # Vizualizace F1 score pro všechny tagy
-    plt.figure(figsize=(12, len(tags) * 0.3))
-    plt.barh(tags, f1_scores)
-    plt.xlabel('F1 Score'); plt.ylabel('Tag'); plt.title('F1 Score pro všechny tagy')
-    plt.tight_layout(); plt.savefig('tag_f1_scores.png'); plt.close()
-    return binary_cm, avg_cm, tag_metrics
-binary_cm, avg_cm, tag_metrics = evaluate_model_with_confusion_matrix(model, test_loader, unique_tags)
+        support = tp + fn
+        precisions.append(precision)
+        recalls.append(recall)
+        f1_scores.append(f1)
+        supports.append(support)
+    metrics_df = pd.DataFrame({'Tag': unique_tags, 'Precision': precisions, 'Recall': recalls, 'F1-Score': f1_scores, 'Support': supports})
+    metrics_df_sorted = metrics_df.sort_values('F1-Score', ascending=False)
+    print(f"{'Rank':<4} {'Tag':<20} {'Precision':<10} {'Recall':<8} {'F1-Score':<9} {'Support':<8}")
+    print("-" * 70)
+    for idx, (_, row) in enumerate(metrics_df_sorted.iterrows()):
+        print(f"{idx+1:<4} {row['Tag']:<20} {row['Precision']:<10.3f} {row['Recall']:<8.3f} {row['F1-Score']:<9.3f} {row['Support']:<8.0f}")
+    # Celkové statistiky
+    avg_precision = np.mean(precisions)
+    avg_recall = np.mean(recalls)
+    avg_f1 = np.mean(f1_scores)
+    print("\n" + "="*50)
+    print("CELKOVÉ STATISTIKY")
+    print("="*50)
+    print(f"Průměrná Precision: {avg_precision:.4f}")
+    print(f"Průměrný Recall:    {avg_recall:.4f}")
+    print(f"Průměrný F1 Score:  {avg_f1:.4f}")
+    print(f"Celkový počet tagů: {len(unique_tags)}")
+    return metrics_df_sorted
+
+start_time = time.time()
+df_metrics = evaluate_model_with_confusion_matrix(trained_model, valid_loader, unique_tags)
+end_time = time.time()
+print(f"Čas pro vytvoření confusion matrices na testovacích datech.: ", (end_time - start_time)/60, " minut, ", (end_time - start_time)/60/60, " hodin")
 ```
+![all_tags_confusion_matrix_grid](https://github.com/user-attachments/assets/86532271-5e93-4c41-88eb-a32de2811b14)
+
+![aggregated_confusion_matrix](https://github.com/user-attachments/assets/c4eb30dd-c1ea-4f98-b9c9-7cb9bdca0709)
+
+![image](https://github.com/user-attachments/assets/50bee761-a747-4fca-9bdd-3b47cdeaab97)
+
