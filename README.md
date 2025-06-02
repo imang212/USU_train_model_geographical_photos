@@ -311,9 +311,10 @@ Klasifikátor bude využívat předtrénovaný model Resnet50. Když jsou data p
 
 Můžem si změnit původní avgpooling u modelu a změnit ho na global average pooling pomocí třídy AdaptiveAvgPool2d(output_size=(1, 1)). Jeho výhody jsou: invariance k velikosti - Satelitní snímky mohou mít různé rozlišení - GAP to zvládne, menší overfitting - Méně parametrů než velké FC vrstvy, prostorová robustnost - Objekty mohou být kdekoli v satelitním snímku a interpretabilita - Každý kanál reprezentuje jeden "koncept"
 
-![image](https://github.com/user-attachments/assets/9646a696-abe7-4c73-98d4-40eee18d2d1b)
-
-![image](https://github.com/user-attachments/assets/7a7de226-b1f5-4116-820d-3bf0e32964fb)
+<div>
+<img src="https://iq.opengenus.org/content/images/2023/06/Global-Avg-Pooling.png" width="800" height="300"/>
+<img src="https://iq.opengenus.org/content/images/2023/06/Flatten_layer-1.png" width="300" height="300"/>
+</div>
 
 Nastavíme si sekvenci, v jaký sekvenci chceme, aby nám trénovací model trénoval data. Pokud máme nastavený global average pooling, tak se vrstva ještě musí flattnout.
 Nadefinujem si nejdřív, aplikujme na vstupní data lineární transformaci podle dané rovnice pro plně připojenou vrstvu, kde si určíme počet dimenzí (u GAP se dává 2048) a velikost každého vstupního a každého výstupního vzorku a volitelně se dá nastavit bias boolean, jestli se vestva naučí aditivní zkreslení, defaultně je true.
